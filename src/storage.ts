@@ -7,6 +7,7 @@ const KEYS = {
   settings: 'ak_settings',
   speed: 'ak_speed',
   theme: 'ak_theme',
+  listened: 'ak_listened', // { [filename]: true } — episodes played to completion
 } as const;
 
 export async function cacheLibrary(library: Library): Promise<void> {
@@ -64,4 +65,15 @@ export async function loadThemeMode(): Promise<ThemeMode | null> {
 
 export async function saveThemeMode(mode: ThemeMode): Promise<void> {
   await AsyncStorage.setItem(KEYS.theme, mode);
+}
+
+export type ListenedMap = Record<string, true>;
+
+export async function loadListenedMap(): Promise<ListenedMap> {
+  const raw = await AsyncStorage.getItem(KEYS.listened);
+  return raw ? JSON.parse(raw) : {};
+}
+
+export async function saveListenedMap(map: ListenedMap): Promise<void> {
+  await AsyncStorage.setItem(KEYS.listened, JSON.stringify(map));
 }

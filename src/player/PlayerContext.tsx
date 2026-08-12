@@ -16,6 +16,7 @@ import {
 } from 'expo-audio';
 import { ARTWORK_URL, SITE_ARTIST_NAME } from '../config';
 import { useDownloads } from '../DownloadsContext';
+import { useListened } from '../ListenedContext';
 import { useSettings } from '../SettingsContext';
 import { loadSpeed, saveSpeed } from '../storage';
 import type { EpisodeRef } from '../types';
@@ -51,6 +52,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const { getPlayableUri, isDownloaded, isDownloading, download } = useDownloads();
+  const { markListened } = useListened();
   const { autoDownloadNext5 } = useSettings();
   // Lazy-initialized: useRef's initializer argument is evaluated on every
   // render even though only the first result is kept, so passing
@@ -168,6 +170,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // tracks resume normal auto-advance.
   useEffect(() => {
     if (!status.didJustFinish) return;
+    const finishedTrack = queue[currentIndex];
+    if (finishedTrack) markListened(finishedTrack.episode.filename);
     if (sleepOption === 'episode') {
       setSleepOption('off');
       return;

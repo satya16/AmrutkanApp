@@ -5,6 +5,8 @@ import { AntDesign } from '@expo/vector-icons';
 import { useLibrary } from '../useLibrary';
 import { usePlayer } from '../player/PlayerContext';
 import { useDownloads } from '../DownloadsContext';
+import { useListened } from '../ListenedContext';
+import { buildBookQueue } from '../bookQueue';
 import { useTheme } from '../theme/ThemeContext';
 import { API_BASE_URL } from '../config';
 import { downloadZip, zipExistsFor, type ZipDownloadProgress } from '../downloads';
@@ -13,7 +15,7 @@ import { checkWifiAllowed } from '../utils/network';
 import { useSettings } from '../SettingsContext';
 import type { HomeStackParamList } from '../navigation/HomeStackNavigator';
 import type { RootStackParamList } from '../navigation/RootNavigator';
-import type { Episode, EpisodeRef } from '../types';
+import type { Episode } from '../types';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Chapter'>;
 
@@ -22,6 +24,7 @@ export function ChapterScreen({ route, navigation }: Props) {
   const { library, loading } = useLibrary();
   const { loadQueueAndPlay, currentTrack, isPlaying } = usePlayer();
   const { isDownloaded, progress, download, removeDownload } = useDownloads();
+  const { isListened } = useListened();
   const { colors } = useTheme();
   const { wifiOnlyDownloads } = useSettings();
   const [zipProgress, setZipProgress] = useState<ZipDownloadProgress | null>(null);
@@ -47,15 +50,9 @@ export function ChapterScreen({ route, navigation }: Props) {
     );
   }
 
-  const queue: EpisodeRef[] = chapter.episodes.map(episode => ({
-    bookId: book.id,
-    bookName: book.name,
-    chapterLabel: chapter.label,
-    episode,
-  }));
-
   const playEpisode = (episode: Episode) => {
-    const index = chapter.episodes.findIndex(e => e.filename === episode.filename);
+    const queue = buildBookQueue(book);
+    const index = queue.findIndex(ref => ref.episode.filename === episode.filename);
     loadQueueAndPlay(queue, index);
     // Two hops: out of HomeStackNavigator into MainDrawer, then out of
     // MainDrawer into RootStack, where the NowPlaying modal actually lives.
@@ -129,6 +126,15 @@ export function ChapterScreen({ route, navigation }: Props) {
               numberOfLines={2}>
               {item.label}
             </Text>
+            {isListened(item.filename) && (
+              <AntDesign
+                name="check-circle"
+                size={14}
+                color={colors.accent}
+                style={styles.listenedTick}
+                aria-label="पूर्ण ऐकले"
+              />
+            )}
             <Pressable
               hitSlop={10}
               style={styles.dlBtn}
@@ -174,6 +180,7 @@ const styles = StyleSheet.create({
   },
   label: { flex: 1, fontSize: 14 },
   labelPlaying: { fontWeight: '600' },
+  listenedTick: { marginLeft: -4 },
   dlBtn: {
     width: 30,
     height: 30,

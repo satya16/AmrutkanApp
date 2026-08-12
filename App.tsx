@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { SettingsProvider } from './src/SettingsContext';
 import { DownloadsProvider } from './src/DownloadsContext';
+import { ListenedProvider } from './src/ListenedContext';
 import { PlayerProvider } from './src/player/PlayerContext';
 import { MiniPlayer } from './src/player/MiniPlayer';
 import { RootNavigator, type RootStackParamList } from './src/navigation/RootNavigator';
@@ -32,11 +33,13 @@ function App() {
       <ThemeProvider>
         <SettingsProvider>
           <DownloadsProvider>
-            <PlayerProvider>
-              <NavigationContainer>
-                <AppShell />
-              </NavigationContainer>
-            </PlayerProvider>
+            <ListenedProvider>
+              <PlayerProvider>
+                <NavigationContainer>
+                  <AppShell />
+                </NavigationContainer>
+              </PlayerProvider>
+            </ListenedProvider>
           </DownloadsProvider>
         </SettingsProvider>
       </ThemeProvider>

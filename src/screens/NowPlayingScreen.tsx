@@ -33,6 +33,8 @@ const SLEEP_OPTIONS: PopupOption<SleepOption>[] = [
   { value: 'off', label: 'बंद' },
 ];
 
+const SKIP_SECONDS = 30;
+
 function sleepLabel(sleepOption: SleepOption, sleepRemainingMinutes: number | null): string {
   if (sleepOption === 'episode') return 'भाग अखेर';
   if (typeof sleepOption === 'number') {
@@ -75,6 +77,7 @@ export function NowPlayingScreen({ navigation }: Props) {
   const filename = currentTrack.episode.filename;
   const downloaded = isDownloaded(filename);
   const downloading = isDownloading(filename);
+  const skip = (delta: number) => seekTo(Math.max(0, Math.min(duration || 0, currentTime + delta)));
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -111,6 +114,12 @@ export function NowPlayingScreen({ navigation }: Props) {
         </View>
       </View>
       <View style={styles.controls}>
+        <Pressable onPress={() => skip(-SKIP_SECONDS)} hitSlop={12} aria-label={`${SKIP_SECONDS} सेकंद मागे`}>
+          <View style={styles.skipIconWrap}>
+            <AntDesign name="reload" size={20} color={colors.text} style={styles.skipIconMirrored} />
+            <Text style={[styles.skipText, { color: colors.text }]}>{SKIP_SECONDS}</Text>
+          </View>
+        </Pressable>
         <Pressable onPress={playPrevious} disabled={!hasPrevious} hitSlop={12} aria-label="Previous track">
           <AntDesign
             name="step-backward"
@@ -124,6 +133,12 @@ export function NowPlayingScreen({ navigation }: Props) {
         </Pressable>
         <Pressable onPress={playNext} disabled={!hasNext} hitSlop={12} aria-label="Next track">
           <AntDesign name="step-forward" size={28} color={colors.text} style={!hasNext && styles.disabled} />
+        </Pressable>
+        <Pressable onPress={() => skip(SKIP_SECONDS)} hitSlop={12} aria-label={`${SKIP_SECONDS} सेकंद पुढे`}>
+          <View style={styles.skipIconWrap}>
+            <AntDesign name="reload" size={20} color={colors.text} />
+            <Text style={[styles.skipText, { color: colors.text }]}>{SKIP_SECONDS}</Text>
+          </View>
         </Pressable>
       </View>
       <View style={styles.pillRow}>
@@ -265,11 +280,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 32,
+    gap: 20,
     paddingVertical: 30,
   },
   disabled: {
     opacity: 0.3,
+  },
+  skipIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipIconMirrored: {
+    transform: [{ scaleX: -1 }],
+  },
+  skipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: -6,
   },
   playBtn: {
     width: 68,
