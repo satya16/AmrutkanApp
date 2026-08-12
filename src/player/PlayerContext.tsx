@@ -7,13 +7,16 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import {
-  createAudioPlayer,
-  requestNotificationPermissionsAsync,
-  setAudioModeAsync,
-  useAudioPlayerStatus,
-  type AudioPlayer,
-} from 'expo-audio';
+import { PermissionsAndroid, Platform } from 'react-native';
+import TrackPlayer, {
+  AppKilledPlaybackBehavior,
+  Capability,
+  Event,
+  State,
+  useProgress,
+  usePlaybackState,
+  type Track,
+} from 'react-native-track-player';
 import { ARTWORK_URL, SITE_ARTIST_NAME } from '../config';
 import { useDownloads } from '../DownloadsContext';
 import { useListened } from '../ListenedContext';
@@ -22,6 +25,7 @@ import { loadSpeed, saveSpeed } from '../storage';
 import type { EpisodeRef } from '../types';
 
 export const SPEED_PRESETS = [0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+const SKIP_SECONDS = 30;
 
 export type SleepOption = 'off' | 'episode' | 15 | 30 | 45 | 60;
 
@@ -33,6 +37,7 @@ type PlayerContextValue = {
   isBuffering: boolean;
   currentTime: number;
   duration: number;
+  buffered: number;
   hasNext: boolean;
   hasPrevious: boolean;
   speed: number;
@@ -50,185 +55,210 @@ type PlayerContextValue = {
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
+let setupPromise: Promise<void> | null = null;
+
+// TrackPlayer.setupPlayer() must only be called once per app lifetime (it
+// throws 'player_already_initialized' on a second call) and, on Android,
+// only while the app is in the foreground — both satisfied by calling this
+// once from PlayerProvider's mount effect, which only ever happens while the
+// app is starting up in the foreground.
+function setupPlayerOnce(): Promise<void> {
+  if (!setupPromise) {
+    setupPromise = TrackPlayer.setupPlayer()
+      .then(() =>
+        TrackPlayer.updateOptions({
+          capabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.SeekTo,
+            Capability.JumpForward,
+            Capability.JumpBackward,
+          ],
+          notificationCapabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext],
+          forwardJumpInterval: SKIP_SECONDS,
+          backwardJumpInterval: SKIP_SECONDS,
+          progressUpdateEventInterval: 1,
+          android: {
+            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
+          },
+        }),
+      )
+      .catch(() => {});
+  }
+  return setupPromise;
+}
+
+async function requestNotificationPermission() {
+  if (Platform.OS !== 'android' || Platform.Version < 33) return;
+  try {
+    await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+  } catch {
+    // Non-fatal — playback still works, just without a visible notification.
+  }
+}
+
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const { getPlayableUri, isDownloaded, isDownloading, download } = useDownloads();
   const { markListened } = useListened();
   const { autoDownloadNext5 } = useSettings();
-  // Lazy-initialized: useRef's initializer argument is evaluated on every
-  // render even though only the first result is kept, so passing
-  // createAudioPlayer(...) directly would construct (and immediately
-  // discard) a real native player/media-session on every re-render.
-  const playerRef = useRef<AudioPlayer | null>(null);
-  if (playerRef.current === null) {
-    playerRef.current = createAudioPlayer(null, { updateInterval: 500 });
-  }
-  const player = playerRef.current;
-  const status = useAudioPlayerStatus(player);
+
+  const progress = useProgress(500);
+  const playbackState = usePlaybackState();
 
   const [queue, setQueue] = useState<EpisodeRef[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
-
   const [speed, setSpeedState] = useState(1);
-  // Sleep countdown target lives in a ref (not state) since nothing renders it
-  // directly — only the derived `sleepRemainingMinutes` below, recomputed off
-  // the player's own 500ms status tick.
   const sleepEndAtRef = useRef(0);
-  // Deliberately defaults to 'off', not 'episode' like the reference website —
-  // this app's default is always-auto-advance (see the didJustFinish effect
-  // below), and sleep state intentionally does not persist across restarts.
   const [sleepOption, setSleepOptionState] = useState<SleepOption>('off');
+
+  // Mirrors the latest queue/index/sleepOption into refs so the event
+  // listeners below (registered once) always see current values instead of
+  // whatever was captured on first render.
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  const currentIndexRef = useRef(currentIndex);
+  currentIndexRef.current = currentIndex;
+  const sleepOptionRef = useRef(sleepOption);
+  sleepOptionRef.current = sleepOption;
+  const durationRef = useRef(0);
+  durationRef.current = progress.duration;
 
   useEffect(() => {
     loadSpeed().then(setSpeedState);
   }, []);
 
   useEffect(() => {
-    setAudioModeAsync({
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-      playsInSilentMode: true,
-    }).catch(() => {});
-    requestNotificationPermissionsAsync().catch(() => {});
+    let cancelled = false;
+    (async () => {
+      await requestNotificationPermission();
+      await setupPlayerOnce();
+      if (cancelled) return;
+    })();
     return () => {
-      player.remove();
+      cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const setSpeed = useCallback(
-    (value: number) => {
-      setSpeedState(value);
-      player.setPlaybackRate(value);
-      saveSpeed(value);
-    },
-    [player],
-  );
 
   const setSleepOption = useCallback((option: SleepOption) => {
     setSleepOptionState(option);
     sleepEndAtRef.current = typeof option === 'number' ? Date.now() + option * 60000 : 0;
   }, []);
 
-  const loadTrackAt = useCallback(
-    (q: EpisodeRef[], index: number) => {
-      const track = q[index];
+  // Fires when the active track changes for any reason: manual skip, a
+  // track finishing and RNTP auto-advancing to the next one, or the queue
+  // being reset. lastPosition lets us tell "finished naturally" (within a
+  // second of that track's duration) apart from "skipped early" — the same
+  // distinction expo-audio's didJustFinish gave us directly.
+  useEffect(() => {
+    const sub = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, event => {
+      if (event.index !== undefined) {
+        setCurrentIndex(event.index);
+      }
+      if (!event.lastTrack) return;
+      const finishedNaturally = event.lastPosition >= durationRef.current - 1;
+      if (finishedNaturally) {
+        markListened(event.lastTrack.id as string);
+        if (sleepOptionRef.current === 'episode') {
+          TrackPlayer.pause();
+          setSleepOption('off');
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [markListened, setSleepOption]);
+
+  // Sleep countdown check, piggybacking on the existing 500ms progress tick.
+  useEffect(() => {
+    if (typeof sleepOption !== 'number' || !sleepEndAtRef.current) return;
+    if (Date.now() >= sleepEndAtRef.current) {
+      TrackPlayer.pause();
+      setSleepOption('off');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress.position]);
+
+  const setSpeed = useCallback((value: number) => {
+    setSpeedState(value);
+    TrackPlayer.setRate(value);
+    saveSpeed(value);
+  }, []);
+
+  const loadQueueAndPlay = useCallback(
+    async (q: EpisodeRef[], startIndex: number) => {
+      const track = q[startIndex];
       if (!track) return;
-      const uri = getPlayableUri(track.episode);
-      player.replace({ uri, name: track.episode.label });
-      player.setPlaybackRate(speed);
-      player.play();
-      player.setActiveForLockScreen(true, {
-        title: track.episode.label,
+      setQueue(q);
+      setCurrentIndex(startIndex);
+
+      await setupPlayerOnce();
+      const tracks: Track[] = q.map(ref => ({
+        id: ref.episode.filename,
+        url: getPlayableUri(ref.episode),
+        title: ref.episode.label,
         artist: SITE_ARTIST_NAME,
-        albumTitle: `${track.bookName} · ${track.chapterLabel}`,
-        artworkUrl: ARTWORK_URL,
-      });
+        album: `${ref.bookName} · ${ref.chapterLabel}`,
+        artwork: ARTWORK_URL,
+      }));
+      await TrackPlayer.reset();
+      await TrackPlayer.add(tracks);
+      await TrackPlayer.skip(startIndex);
+      await TrackPlayer.setRate(speed);
+      await TrackPlayer.play();
+
       if (autoDownloadNext5) {
-        q.slice(index + 1, index + 6).forEach(ref => {
+        q.slice(startIndex + 1, startIndex + 6).forEach(ref => {
           if (!isDownloaded(ref.episode.filename) && !isDownloading(ref.episode.filename)) {
             download(ref.episode, { silent: true }).catch(() => {});
           }
         });
       }
     },
-    [getPlayableUri, player, speed, autoDownloadNext5, isDownloaded, isDownloading, download],
-  );
-
-  const loadQueueAndPlay = useCallback(
-    (q: EpisodeRef[], startIndex: number) => {
-      setQueue(q);
-      setCurrentIndex(startIndex);
-      loadTrackAt(q, startIndex);
-    },
-    [loadTrackAt],
+    [getPlayableUri, speed, autoDownloadNext5, isDownloaded, isDownloading, download],
   );
 
   const playNext = useCallback(() => {
-    setCurrentIndex(idx => {
-      const next = idx + 1;
-      if (next >= queue.length) return idx;
-      loadTrackAt(queue, next);
-      return next;
-    });
-  }, [queue, loadTrackAt]);
+    if (currentIndexRef.current >= queueRef.current.length - 1) return;
+    TrackPlayer.skipToNext().catch(() => {});
+  }, []);
 
   const playPrevious = useCallback(() => {
-    setCurrentIndex(idx => {
-      const prev = idx - 1;
-      if (prev < 0) return idx;
-      loadTrackAt(queue, prev);
-      return prev;
-    });
-  }, [queue, loadTrackAt]);
-
-  // Auto-advance when a track ends, mirroring the web player's default
-  // ("stop at end of episode" is intentionally not the default here — unlike
-  // the web app, this queue is always a single chapter's episode list, so
-  // auto-advancing to the next episode is the expected podcast-like behavior)
-  // — unless the user armed the sleep timer's "stop at end of episode"
-  // option, in which case this is a one-shot: it's consumed here and later
-  // tracks resume normal auto-advance.
-  useEffect(() => {
-    if (!status.didJustFinish) return;
-    const finishedTrack = queue[currentIndex];
-    if (finishedTrack) markListened(finishedTrack.episode.filename);
-    if (sleepOption === 'episode') {
-      setSleepOption('off');
-      return;
-    }
-    playNext();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status.didJustFinish]);
-
-  // Sleep countdown check, piggybacking on the player's existing 500ms status
-  // tick instead of a separate setInterval. Naturally freezes while paused
-  // (currentTime stops changing), matching the reference website's
-  // timeupdate-driven equivalent.
-  useEffect(() => {
-    if (typeof sleepOption !== 'number' || !sleepEndAtRef.current) return;
-    if (Date.now() >= sleepEndAtRef.current) {
-      player.pause();
-      setSleepOption('off');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status.currentTime]);
+    if (currentIndexRef.current <= 0) return;
+    TrackPlayer.skipToPrevious().catch(() => {});
+  }, []);
 
   const togglePlayPause = useCallback(() => {
-    if (currentIndex < 0) return;
-    if (player.playing) player.pause();
-    else player.play();
-  }, [player, currentIndex]);
+    if (currentIndexRef.current < 0) return;
+    if (playbackState.state === State.Playing) TrackPlayer.pause();
+    else TrackPlayer.play();
+  }, [playbackState.state]);
 
-  const seekTo = useCallback(
-    (seconds: number) => {
-      player.seekTo(seconds);
-    },
-    [player],
-  );
+  const seekTo = useCallback((seconds: number) => {
+    TrackPlayer.seekTo(seconds);
+  }, []);
 
   const stop = useCallback(() => {
-    // player.replace(null) is deliberately not called here: despite what its
-    // TS signature (shared with createAudioPlayer's constructor arg) implies,
-    // the native binding rejects a null source for replace() specifically.
-    // Pausing and clearing the app-level queue/index is enough — currentTrack
-    // becomes null, which is what actually drives the UI hiding the player.
-    player.pause();
-    player.setActiveForLockScreen(false);
+    TrackPlayer.reset().catch(() => {});
     sleepEndAtRef.current = 0;
     setSleepOptionState('off');
     setQueue([]);
     setCurrentIndex(-1);
-  }, [player]);
+  }, []);
+
+  const isBuffering =
+    playbackState.state === State.Buffering || playbackState.state === State.Loading;
 
   const value = useMemo<PlayerContextValue>(
     () => ({
       queue,
       currentIndex,
       currentTrack: currentIndex >= 0 ? (queue[currentIndex] ?? null) : null,
-      isPlaying: status.playing,
-      isBuffering: status.isBuffering,
-      currentTime: status.currentTime,
-      duration: status.duration,
+      isPlaying: playbackState.state === State.Playing,
+      isBuffering,
+      currentTime: progress.position,
+      duration: progress.duration,
+      buffered: progress.buffered,
       hasNext: currentIndex >= 0 && currentIndex < queue.length - 1,
       hasPrevious: currentIndex > 0,
       speed,
@@ -249,10 +279,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     [
       queue,
       currentIndex,
-      status.playing,
-      status.isBuffering,
-      status.currentTime,
-      status.duration,
+      playbackState.state,
+      isBuffering,
+      progress.position,
+      progress.duration,
+      progress.buffered,
       speed,
       sleepOption,
       loadQueueAndPlay,

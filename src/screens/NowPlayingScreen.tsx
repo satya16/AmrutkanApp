@@ -34,6 +34,10 @@ const SLEEP_OPTIONS: PopupOption<SleepOption>[] = [
 ];
 
 const SKIP_SECONDS = 30;
+// Accent color at reduced opacity — reads as "loaded but not played yet",
+// distinct from both the plain track (colors.border) and the played portion
+// (full-opacity colors.accent), matching the website's buffered-rail gradient.
+const BUFFERED_COLOR = 'rgba(181, 84, 26, 0.35)';
 
 function sleepLabel(sleepOption: SleepOption, sleepRemainingMinutes: number | null): string {
   if (sleepOption === 'episode') return 'भाग अखेर';
@@ -51,6 +55,7 @@ export function NowPlayingScreen({ navigation }: Props) {
     isPlaying,
     currentTime,
     duration,
+    buffered,
     hasNext,
     hasPrevious,
     speed,
@@ -99,15 +104,25 @@ export function NowPlayingScreen({ navigation }: Props) {
         </Text>
       </View>
       <View style={styles.progress}>
-        <Slider
-          minimumValue={0}
-          maximumValue={duration || 0}
-          value={currentTime}
-          onSlidingComplete={seekTo}
-          minimumTrackTintColor={colors.accent}
-          maximumTrackTintColor={colors.border}
-          thumbTintColor={colors.accent}
-        />
+        <View style={styles.sliderStack}>
+          <View style={[styles.trackBase, { backgroundColor: colors.border }]} />
+          <View
+            style={[
+              styles.trackBuffered,
+              { width: `${duration ? Math.min(100, (buffered / duration) * 100) : 0}%`, backgroundColor: BUFFERED_COLOR },
+            ]}
+          />
+          <Slider
+            style={styles.sliderOverlay}
+            minimumValue={0}
+            maximumValue={duration || 0}
+            value={currentTime}
+            onSlidingComplete={seekTo}
+            minimumTrackTintColor={colors.accent}
+            maximumTrackTintColor="transparent"
+            thumbTintColor={colors.accent}
+          />
+        </View>
         <View style={styles.timeRow}>
           <Text style={[styles.timeText, { color: colors.textSecondary }]}>{formatTime(currentTime)}</Text>
           <Text style={[styles.timeText, { color: colors.textSecondary }]}>{formatTime(duration)}</Text>
@@ -267,6 +282,25 @@ const styles = StyleSheet.create({
   progress: {
     paddingHorizontal: 26,
     paddingTop: 8,
+  },
+  sliderStack: {
+    justifyContent: 'center',
+  },
+  trackBase: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 4,
+    borderRadius: 2,
+  },
+  trackBuffered: {
+    position: 'absolute',
+    left: 0,
+    height: 4,
+    borderRadius: 2,
+  },
+  sliderOverlay: {
+    width: '100%',
   },
   timeRow: {
     flexDirection: 'row',

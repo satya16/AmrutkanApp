@@ -27,13 +27,5 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
-      <service
-        android:name="expo.modules.audio.service.AudioControlsService"
-        android:exported="false"
-        android:foregroundServiceType="mediaPlayback">
-        <intent-filter>
-            <action android:name="androidx.media3.session.MediaSessionService" />
-        </intent-filter>
-      </service>
     </application>
 </manifest>
