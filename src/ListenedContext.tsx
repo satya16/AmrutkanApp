@@ -4,6 +4,11 @@ import { loadListenedMap, saveListenedMap, type ListenedMap } from './storage';
 type ListenedContextValue = {
   isListened: (filename: string) => boolean;
   markListened: (filename: string) => void;
+  // Raw map, for callers that need to reason about the whole set at once
+  // (e.g. the Continue Listening widget finding the first unlistened
+  // episode across the library) rather than checking one filename at a
+  // time via isListened.
+  listenedMap: ListenedMap;
 };
 
 const ListenedContext = createContext<ListenedContextValue | null>(null);
@@ -31,8 +36,8 @@ export function ListenedProvider({ children }: { children: React.ReactNode }) {
   const isListened = useCallback((filename: string) => !!listened[filename], [listened]);
 
   const value = useMemo<ListenedContextValue>(
-    () => ({ isListened, markListened }),
-    [isListened, markListened],
+    () => ({ isListened, markListened, listenedMap: listened }),
+    [isListened, markListened, listened],
   );
 
   if (!loaded) return null;

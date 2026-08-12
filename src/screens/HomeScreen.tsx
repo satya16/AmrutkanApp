@@ -18,6 +18,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { toDevanagari } from '../utils/devanagari';
 import { BrandIcon } from '../components/BrandIcon';
 import { AppFooter } from '../components/AppFooter';
+import { ContinueListening } from '../components/ContinueListening';
 import type { HomeStackParamList } from '../navigation/HomeStackNavigator';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import type { Book, HomeContent, PustakBook } from '../types';
@@ -80,6 +81,7 @@ export function HomeScreen({ navigation }: Props) {
           <Image source={{ uri: resolveUrl(home.heroImage) }} style={styles.heroImage} />
           <Text style={[styles.heroTitle, { color: colors.text }]}>अमृतकण</Text>
           <Text style={[styles.heroTagline, { color: colors.textSecondary }]}>{home.tagline}</Text>
+          <ContinueListening library={library} navigation={navigation} />
           <Pressable
             onPress={() => navigation.navigate('Offline')}
             style={[styles.offlineButton, { backgroundColor: colors.fillTertiary }]}>
