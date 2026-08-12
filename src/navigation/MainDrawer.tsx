@@ -9,6 +9,7 @@ import {
 import { AntDesign } from '@expo/vector-icons';
 import { HomeStackNavigator } from './HomeStackNavigator';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { HeaderActions } from '../components/HeaderActions';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -17,6 +18,7 @@ import { useTheme } from '../theme/ThemeContext';
 export type DrawerParamList = {
   HomeTab: undefined;
   Settings: undefined;
+  Feedback: undefined;
 };
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
@@ -27,6 +29,10 @@ function HomeDrawerIcon({ color, size }: { color: string; size: number }) {
 
 function SettingsDrawerIcon({ color, size }: { color: string; size: number }) {
   return <AntDesign name="setting" size={size} color={color} />;
+}
+
+function FeedbackDrawerIcon({ color, size }: { color: string; size: number }) {
+  return <AntDesign name="message" size={size} color={color} />;
 }
 
 function CustomDrawerContent(props: DrawerContentComponentProps) {
@@ -50,6 +56,14 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
         activeTintColor={colors.accent}
         inactiveTintColor={colors.text}
         onPress={() => props.navigation.navigate('Settings')}
+      />
+      <DrawerItem
+        label="अभिप्राय"
+        icon={FeedbackDrawerIcon}
+        focused={activeRouteName === 'Feedback'}
+        activeTintColor={colors.accent}
+        inactiveTintColor={colors.text}
+        onPress={() => props.navigation.navigate('Feedback')}
       />
       <View style={[styles.divider, { borderTopColor: colors.border }]} />
       <View style={styles.themeRow}>
@@ -79,6 +93,11 @@ export function MainDrawer() {
         name="Settings"
         component={SettingsScreen}
         options={{ title: 'सेटिंग्ज', headerLeft: renderDrawerMenuButton }}
+      />
+      <Drawer.Screen
+        name="Feedback"
+        component={FeedbackScreen}
+        options={{ title: 'अभिप्राय', headerLeft: renderDrawerMenuButton }}
       />
     </Drawer.Navigator>
   );
