@@ -37,7 +37,7 @@ const SKIP_SECONDS = 30;
 // Accent color at reduced opacity — reads as "loaded but not played yet",
 // distinct from both the plain track (colors.border) and the played portion
 // (full-opacity colors.accent), matching the website's buffered-rail gradient.
-const BUFFERED_COLOR = 'rgba(181, 84, 26, 0.35)';
+const BUFFERED_COLOR = 'rgba(181, 84, 26, 0.4)';
 
 function sleepLabel(sleepOption: SleepOption, sleepRemainingMinutes: number | null): string {
   if (sleepOption === 'episode') return 'भाग अखेर';
