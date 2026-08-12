@@ -1,0 +1,67 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Library } from './types';
+
+const KEYS = {
+  library: 'ak_library_cache',
+  downloads: 'ak_downloads', // { [filename]: localFilePath }
+  settings: 'ak_settings',
+  speed: 'ak_speed',
+  theme: 'ak_theme',
+} as const;
+
+export async function cacheLibrary(library: Library): Promise<void> {
+  await AsyncStorage.setItem(KEYS.library, JSON.stringify(library));
+}
+
+export async function loadCachedLibrary(): Promise<Library | null> {
+  const raw = await AsyncStorage.getItem(KEYS.library);
+  return raw ? JSON.parse(raw) : null;
+}
+
+export type DownloadsMap = Record<string, string>;
+
+export async function loadDownloadsMap(): Promise<DownloadsMap> {
+  const raw = await AsyncStorage.getItem(KEYS.downloads);
+  return raw ? JSON.parse(raw) : {};
+}
+
+export async function saveDownloadsMap(map: DownloadsMap): Promise<void> {
+  await AsyncStorage.setItem(KEYS.downloads, JSON.stringify(map));
+}
+
+export type Settings = {
+  autoDownloadNext5: boolean;
+  wifiOnlyDownloads: boolean;
+};
+
+const DEFAULT_SETTINGS: Settings = { autoDownloadNext5: false, wifiOnlyDownloads: false };
+
+export async function loadSettings(): Promise<Settings> {
+  const raw = await AsyncStorage.getItem(KEYS.settings);
+  return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+}
+
+export async function saveSettings(settings: Settings): Promise<void> {
+  await AsyncStorage.setItem(KEYS.settings, JSON.stringify(settings));
+}
+
+export async function loadSpeed(): Promise<number> {
+  const raw = await AsyncStorage.getItem(KEYS.speed);
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+export async function saveSpeed(speed: number): Promise<void> {
+  await AsyncStorage.setItem(KEYS.speed, String(speed));
+}
+
+export type ThemeMode = 'light' | 'dark';
+
+export async function loadThemeMode(): Promise<ThemeMode | null> {
+  const raw = await AsyncStorage.getItem(KEYS.theme);
+  return raw === 'light' || raw === 'dark' ? raw : null;
+}
+
+export async function saveThemeMode(mode: ThemeMode): Promise<void> {
+  await AsyncStorage.setItem(KEYS.theme, mode);
+}

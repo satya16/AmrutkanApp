@@ -1,0 +1,7 @@
+{
+  "name": "AmrutkanApp",
+  "displayName": "AmrutkanApp",
+  "plugins": [
+    "expo-audio"
+  ]
+}
