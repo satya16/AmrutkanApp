@@ -4,6 +4,7 @@ import { StatusBar, StyleSheet, View } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { SettingsProvider } from './src/SettingsContext';
 import { DownloadsProvider } from './src/DownloadsContext';
@@ -29,21 +30,23 @@ function AppShell() {
 
 function App() {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <SettingsProvider>
-          <DownloadsProvider>
-            <ListenedProvider>
-              <PlayerProvider>
-                <NavigationContainer>
-                  <AppShell />
-                </NavigationContainer>
-              </PlayerProvider>
-            </ListenedProvider>
-          </DownloadsProvider>
-        </SettingsProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.container}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <SettingsProvider>
+            <DownloadsProvider>
+              <ListenedProvider>
+                <PlayerProvider>
+                  <NavigationContainer>
+                    <AppShell />
+                  </NavigationContainer>
+                </PlayerProvider>
+              </ListenedProvider>
+            </DownloadsProvider>
+          </SettingsProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

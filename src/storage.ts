@@ -8,6 +8,7 @@ const KEYS = {
   speed: 'ak_speed',
   theme: 'ak_theme',
   listened: 'ak_listened', // { [filename]: true } — episodes played to completion
+  pustakProgress: 'ak_pustak_progress', // { [bookId]: lastReadPage } — mirrors the website's key/shape
 } as const;
 
 export async function cacheLibrary(library: Library): Promise<void> {
@@ -76,4 +77,29 @@ export async function loadListenedMap(): Promise<ListenedMap> {
 
 export async function saveListenedMap(map: ListenedMap): Promise<void> {
   await AsyncStorage.setItem(KEYS.listened, JSON.stringify(map));
+}
+
+export async function loadPustakPage(bookId: string): Promise<number | null> {
+  const raw = await AsyncStorage.getItem(KEYS.pustakProgress);
+  if (!raw) return null;
+  try {
+    const all = JSON.parse(raw);
+    const page = all?.[bookId];
+    return typeof page === 'number' && page >= 1 ? page : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function savePustakPage(bookId: string, page: number): Promise<void> {
+  const raw = await AsyncStorage.getItem(KEYS.pustakProgress);
+  let all: Record<string, number> = {};
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (parsed && typeof parsed === 'object') all = parsed;
+  } catch {
+    // corrupt value — overwrite with a fresh map below
+  }
+  all[bookId] = page;
+  await AsyncStorage.setItem(KEYS.pustakProgress, JSON.stringify(all));
 }

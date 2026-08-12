@@ -9,16 +9,18 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AntDesign } from '@expo/vector-icons';
 import { useLibrary } from '../useLibrary';
-import { fetchHome } from '../api';
+import { fetchHome, fetchPustake } from '../api';
 import { API_BASE_URL } from '../config';
 import { useTheme } from '../theme/ThemeContext';
 import { toDevanagari } from '../utils/devanagari';
 import { BrandIcon } from '../components/BrandIcon';
 import { AppFooter } from '../components/AppFooter';
 import type { HomeStackParamList } from '../navigation/HomeStackNavigator';
-import type { Book, HomeContent } from '../types';
+import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { Book, HomeContent, PustakBook } from '../types';
 
 function resolveUrl(path: string): string {
   return path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
@@ -33,10 +35,14 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'Home'>;
 export function HomeScreen({ navigation }: Props) {
   const { library, loading, error, isOffline } = useLibrary();
   const [home, setHome] = useState<HomeContent | null>(null);
+  const [pustake, setPustake] = useState<PustakBook[] | null>(null);
   const { colors } = useTheme();
 
   useEffect(() => {
     fetchHome().then(setHome).catch(() => {});
+    fetchPustake()
+      .then(data => setPustake(data.books))
+      .catch(() => {});
   }, []);
 
   if (loading || !home) {
@@ -59,9 +65,13 @@ export function HomeScreen({ navigation }: Props) {
   return (
     <ScrollView style={{ backgroundColor: colors.bg }} contentContainerStyle={styles.scroll}>
       {isOffline && (
-        <Text style={[styles.offlineBanner, { backgroundColor: colors.fillTertiary, color: colors.text }]}>
-          ऑफलाइन — जुनी यादी दाखवली जात आहे
-        </Text>
+        <Pressable
+          onPress={() => navigation.navigate('Offline')}
+          style={[styles.offlineBanner, { backgroundColor: colors.fillTertiary }]}>
+          <Text style={{ color: colors.text }}>
+            ऑफलाइन — डाउनलोड केलेले भाग ऐकण्यासाठी टॅप करा
+          </Text>
+        </Pressable>
       )}
 
       {/* Hero */}
@@ -70,6 +80,12 @@ export function HomeScreen({ navigation }: Props) {
           <Image source={{ uri: resolveUrl(home.heroImage) }} style={styles.heroImage} />
           <Text style={[styles.heroTitle, { color: colors.text }]}>अमृतकण</Text>
           <Text style={[styles.heroTagline, { color: colors.textSecondary }]}>{home.tagline}</Text>
+          <Pressable
+            onPress={() => navigation.navigate('Offline')}
+            style={[styles.offlineButton, { backgroundColor: colors.fillTertiary }]}>
+            <AntDesign name="download" size={16} color={colors.text} />
+            <Text style={[styles.offlineButtonText, { color: colors.text }]}>ऑफलाइन उपलब्ध</Text>
+          </Pressable>
         </View>
 
         <View style={styles.tileGrid}>
@@ -128,6 +144,39 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       </View>
 
+      {/* पुस्तके: digital-only book reader, mirrors the website section of
+          the same name between YouTube and About. Hidden entirely if the
+          fetch hasn't resolved with at least one book yet (e.g. offline on
+          first launch), same as the website's guard. */}
+      {pustake && pustake.length > 0 && (
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, styles.centerText, { color: colors.text }]}>पुस्तके</Text>
+          <View style={styles.pustakGrid}>
+            {pustake.map(book => (
+              <Pressable
+                key={book.id}
+                style={styles.pustakTile}
+                onPress={() =>
+                  navigation
+                    .getParent()
+                    ?.getParent<NativeStackNavigationProp<RootStackParamList>>()
+                    ?.navigate('PustakReader', { bookId: book.id })
+                }>
+                <Image source={{ uri: resolveUrl(book.thumbnailUrl) }} style={styles.pustakCover} />
+                <Text style={[styles.pustakTitle, { color: colors.text }]} numberOfLines={1}>
+                  {book.title}
+                </Text>
+                {!!book.author && (
+                  <Text style={[styles.pustakAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {book.author}
+                  </Text>
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* About */}
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
         <Text style={[styles.sectionTitle, styles.centerText, { color: colors.text }]}>आमच्याबद्दल</Text>
@@ -148,12 +197,22 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1 },
   errorText: { fontSize: 16, marginBottom: 6, textAlign: 'center' },
   errorDetail: { fontSize: 12, textAlign: 'center' },
-  offlineBanner: { textAlign: 'center', paddingVertical: 6, fontSize: 12 },
+  offlineBanner: { alignItems: 'center', paddingVertical: 8 },
   section: { paddingVertical: 32, paddingHorizontal: 20 },
   heroCenter: { alignItems: 'center' },
   heroImage: { width: 120, height: 120, borderRadius: 60, marginBottom: 16 },
   heroTitle: { fontSize: 32, fontWeight: '800', marginBottom: 8 },
   heroTagline: { fontSize: 16, textAlign: 'center', paddingHorizontal: 16 },
+  offlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+  },
+  offlineButtonText: { fontSize: 14, fontWeight: '600' },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 40 },
   tile: { flexBasis: '47%', flexGrow: 1, borderRadius: 16, paddingVertical: 28, paddingHorizontal: 16, alignItems: 'center' },
   tileTitle: { fontSize: 19, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
@@ -167,6 +226,17 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 22, fontWeight: '700' },
   centerText: { textAlign: 'center', marginBottom: 12 },
   link: { fontSize: 14, marginTop: 8 },
+  pustakGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 20,
+    marginTop: 16,
+  },
+  pustakTile: { width: 130 },
+  pustakCover: { width: '100%', aspectRatio: 2 / 3, borderRadius: 8 },
+  pustakTitle: { fontSize: 14, fontWeight: '600', marginTop: 8, textAlign: 'center' },
+  pustakAuthor: { fontSize: 12, textAlign: 'center' },
   videoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 16 },
   videoTile: { flexBasis: '47%', flexGrow: 1, aspectRatio: 16 / 9, borderRadius: 8, overflow: 'hidden' },
   videoThumb: { width: '100%', height: '100%' },

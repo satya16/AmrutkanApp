@@ -47,6 +47,15 @@ export type HomeContent = {
   };
 };
 
+export type PustakBook = {
+  id: string;
+  title: string;
+  subtitle: string;
+  author: string;
+  pageCount: number;
+  thumbnailUrl: string;
+};
+
 // Identifies an episode within its book/chapter context, e.g. for playback
 // queues and download bookkeeping — filename alone is unique site-wide today,
 // but carrying the context avoids relying on that never changing.
