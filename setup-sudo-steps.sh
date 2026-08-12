@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-time setup steps that need sudo, deferred from the Claude Code session
+# One-time setup steps that need sudo, deferred from the initial setup
 # that set up the rest of the Android/React Native toolchain (Node via nvm,
 # JDK via SDKMAN, Android SDK, AVD — all installed without sudo).
 #
