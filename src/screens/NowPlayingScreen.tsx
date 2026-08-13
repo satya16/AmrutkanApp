@@ -87,7 +87,9 @@ export function NowPlayingScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>आता वाजत आहे</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+          आता वाजत आहे
+        </Text>
         <Pressable onPress={() => navigation.goBack()} hitSlop={12} aria-label="Minimize player">
           <AntDesign name="minus" size={20} color={colors.text} />
         </Pressable>
@@ -253,6 +255,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 15,
     fontWeight: '600',
+    minWidth: 220,
   },
   artWrap: {
     flex: 1,

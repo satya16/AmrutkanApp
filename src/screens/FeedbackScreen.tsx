@@ -75,7 +75,13 @@ export function FeedbackScreen() {
         style={[styles.submitButton, { backgroundColor: colors.accent }, submitting && styles.submitButtonDisabled]}
         onPress={handleSubmit}
         disabled={submitting}>
-        {submitting ? <ActivityIndicator size="small" color="#ffffff" /> : <Text style={styles.submitText}>पाठवा</Text>}
+        {submitting ? (
+          <ActivityIndicator size="small" color="#ffffff" />
+        ) : (
+          <Text style={styles.submitText} numberOfLines={1}>
+            पाठवा
+          </Text>
+        )}
       </Pressable>
     </View>
   );
@@ -106,5 +112,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   submitButtonDisabled: { opacity: 0.6 },
-  submitText: { fontSize: 15, fontWeight: '600', color: '#ffffff' },
+  submitText: { fontSize: 15, fontWeight: '600', color: '#ffffff', minWidth: 100, textAlign: 'center' },
 });
