@@ -78,6 +78,8 @@ export function HomeScreen({ navigation }: Props) {
       {/* Hero */}
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
         <View style={styles.heroCenter}>
+          <Image source={{ uri: resolveUrl(home.tilakImage) }} style={styles.tilakImage} />
+          <Text style={[styles.tilakText, { color: colors.text }]}>{home.tilakText}</Text>
           <Image source={{ uri: resolveUrl(home.heroImage) }} style={styles.heroImage} />
           <Text style={[styles.heroTitle, { color: colors.text }]}>अमृतकण</Text>
           <Text style={[styles.heroTagline, { color: colors.textSecondary }]}>{home.tagline}</Text>
@@ -181,8 +183,9 @@ export function HomeScreen({ navigation }: Props) {
 
       {/* About */}
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.sectionTitle, styles.centerText, { color: colors.text }]}>आमच्याबद्दल</Text>
+        <Text style={[styles.sectionTitle, styles.centerText, { color: colors.text }]}>{home.aboutHeading}</Text>
         <Text style={[styles.paragraph, { color: colors.text }]}>{home.aboutText}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{home.aboutMeHeading}</Text>
         <View style={styles.aboutMeCol}>
           <Image source={{ uri: resolveUrl(home.aboutMePhoto) }} style={styles.aboutMePhoto} />
           <Text style={[styles.paragraph, { color: colors.text }]}>{home.aboutMeText}</Text>
@@ -202,6 +205,8 @@ const styles = StyleSheet.create({
   offlineBanner: { alignItems: 'center', paddingVertical: 8 },
   section: { paddingVertical: 32, paddingHorizontal: 20 },
   heroCenter: { alignItems: 'center' },
+  tilakImage: { width: 12, height: 17, resizeMode: 'contain', marginBottom: 8 },
+  tilakText: { fontSize: 16, fontWeight: '600', marginBottom: 16 },
   heroImage: { width: 120, height: 120, borderRadius: 60, marginBottom: 16 },
   heroTitle: { fontSize: 32, fontWeight: '800', marginBottom: 8 },
   heroTagline: { fontSize: 16, textAlign: 'center', paddingHorizontal: 16 },
