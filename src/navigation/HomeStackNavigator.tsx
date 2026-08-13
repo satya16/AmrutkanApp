@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from '../screens/HomeScreen';
 import { BookScreen } from '../screens/BookScreen';
 import { ChapterScreen } from '../screens/ChapterScreen';
+import { OfflineScreen } from '../screens/OfflineScreen';
 import { HeaderActions } from '../components/HeaderActions';
 import { DrawerMenuButton } from '../components/DrawerMenuButton';
 import { useTheme } from '../theme/ThemeContext';
@@ -13,6 +14,7 @@ export type HomeStackParamList = {
   Home: undefined;
   Book: { bookId: string };
   Chapter: { bookId: string; chapterSlug: string };
+  Offline: undefined;
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -46,6 +48,7 @@ export function HomeStackNavigator() {
       />
       <Stack.Screen name="Book" component={BookScreen} options={{ title: '' }} />
       <Stack.Screen name="Chapter" component={ChapterScreen} options={{ title: '' }} />
+      <Stack.Screen name="Offline" component={OfflineScreen} options={{ title: 'ऑफलाइन उपलब्ध' }} />
     </Stack.Navigator>
   );
 }

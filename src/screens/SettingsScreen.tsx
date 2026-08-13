@@ -1,12 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import type { DrawerScreenProps } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSettings } from '../SettingsContext';
 import { useDownloads } from '../DownloadsContext';
 import { useTheme } from '../theme/ThemeContext';
 import { formatBytes, getDownloadsSummary, type DownloadsSummary } from '../downloads';
 import { toDevanagari } from '../utils/devanagari';
+import { OfflineEpisodesList } from '../components/OfflineEpisodesList';
+import type { DrawerParamList } from '../navigation/MainDrawer';
+import type { RootStackParamList } from '../navigation/RootNavigator';
 
-export function SettingsScreen() {
+type Props = DrawerScreenProps<DrawerParamList, 'Settings'>;
+
+export function SettingsScreen({ navigation }: Props) {
   const { autoDownloadNext5, setAutoDownloadNext5, wifiOnlyDownloads, setWifiOnlyDownloads } =
     useSettings();
   const { clearAllDownloads } = useDownloads();
@@ -45,8 +52,14 @@ export function SettingsScreen() {
   const itemCount = summary ? summary.episodeCount + summary.zipCount : 0;
   const hasDownloads = itemCount > 0;
 
+  const goToNowPlaying = () => {
+    navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('NowPlaying');
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <ScrollView
+      style={{ backgroundColor: colors.bg }}
+      contentContainerStyle={styles.container}>
       <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.rowText}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>पुढील ५ भाग आपोआप डाउनलोड करा</Text>
@@ -110,12 +123,15 @@ export function SettingsScreen() {
           </Text>
         )}
       </Pressable>
-    </View>
+
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>डाउनलोड केलेले भाग</Text>
+      <OfflineEpisodesList onPlay={goToNowPlaying} onDelete={refreshSummary} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flexGrow: 1, padding: 16 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
