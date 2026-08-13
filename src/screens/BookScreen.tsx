@@ -8,7 +8,8 @@ import { API_BASE_URL } from '../config';
 import { downloadZip, zipExistsFor, type ZipDownloadProgress } from '../downloads';
 import { AppFooter } from '../components/AppFooter';
 import { toDevanagari } from '../utils/devanagari';
-import { checkWifiAllowed } from '../utils/network';
+import { promptDownload } from '../downloadPrompt';
+import { useScheduledDownloads } from '../ScheduledDownloadsContext';
 import { useSettings } from '../SettingsContext';
 import type { HomeStackParamList } from '../navigation/HomeStackNavigator';
 import type { Chapter } from '../types';
@@ -20,6 +21,7 @@ export function BookScreen({ route, navigation }: Props) {
   const { library, loading } = useLibrary();
   const { colors } = useTheme();
   const { wifiOnlyDownloads } = useSettings();
+  const { scheduleDownload } = useScheduledDownloads();
   const book = library?.books.find(b => b.id === bookId);
   const [zipProgress, setZipProgress] = useState<ZipDownloadProgress | null>(null);
   const [zipDownloaded, setZipDownloaded] = useState(false);
@@ -41,7 +43,18 @@ export function BookScreen({ route, navigation }: Props) {
   }
 
   const handleDownloadZip = async () => {
-    if (!(await checkWifiAllowed(wifiOnlyDownloads))) return;
+    const label = `संपूर्ण ${book.name} (ZIP)`;
+    const decision = await promptDownload(label, book.zipSizeBytes, wifiOnlyDownloads);
+    if (decision === 'cancel') return;
+    if (decision === 'schedule') {
+      await scheduleDownload({
+        type: 'zip',
+        url: `${API_BASE_URL}/download/book/${book.id}`,
+        filename: `${book.id}.zip`,
+        label,
+      });
+      return;
+    }
     setZipProgress({ bytesWritten: 0, contentLength: 0 });
     try {
       await downloadZip(`${API_BASE_URL}/download/book/${book.id}`, `${book.id}.zip`, setZipProgress);

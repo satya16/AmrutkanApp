@@ -2,6 +2,7 @@ export type Episode = {
   filename: string;
   label: string;
   audioUrl: string;
+  sizeBytes: number;
 };
 
 export type Chapter = {
@@ -10,6 +11,7 @@ export type Chapter = {
   isSpecial: boolean;
   episodeCount: number;
   episodes: Episode[];
+  zipSizeBytes: number | null;
 };
 
 export type Book = {
@@ -18,6 +20,7 @@ export type Book = {
   unit: string;
   totalEpisodes: number;
   chapters: Chapter[];
+  zipSizeBytes: number | null;
 };
 
 export type Library = {

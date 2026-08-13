@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { SettingsProvider } from './src/SettingsContext';
 import { DownloadsProvider } from './src/DownloadsContext';
+import { ScheduledDownloadsProvider } from './src/ScheduledDownloadsContext';
 import { ListenedProvider } from './src/ListenedContext';
 import { PlayerProvider } from './src/player/PlayerContext';
 import { MiniPlayer } from './src/player/MiniPlayer';
@@ -35,13 +36,15 @@ function App() {
         <ThemeProvider>
           <SettingsProvider>
             <DownloadsProvider>
-              <ListenedProvider>
-                <PlayerProvider>
-                  <NavigationContainer>
-                    <AppShell />
-                  </NavigationContainer>
-                </PlayerProvider>
-              </ListenedProvider>
+              <ScheduledDownloadsProvider>
+                <ListenedProvider>
+                  <PlayerProvider>
+                    <NavigationContainer>
+                      <AppShell />
+                    </NavigationContainer>
+                  </PlayerProvider>
+                </ListenedProvider>
+              </ScheduledDownloadsProvider>
             </DownloadsProvider>
           </SettingsProvider>
         </ThemeProvider>

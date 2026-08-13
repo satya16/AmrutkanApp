@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Library } from './types';
+import type { Episode, Library } from './types';
 
 const KEYS = {
   library: 'ak_library_cache',
@@ -9,6 +9,7 @@ const KEYS = {
   theme: 'ak_theme',
   listened: 'ak_listened', // { [filename]: true } — episodes played to completion
   pustakProgress: 'ak_pustak_progress', // { [bookId]: lastReadPage } — mirrors the website's key/shape
+  scheduledDownloads: 'ak_scheduled_downloads', // queued while on mobile data, drained once Wi-Fi connects
 } as const;
 
 export async function cacheLibrary(library: Library): Promise<void> {
@@ -102,4 +103,17 @@ export async function savePustakPage(bookId: string, page: number): Promise<void
   }
   all[bookId] = page;
   await AsyncStorage.setItem(KEYS.pustakProgress, JSON.stringify(all));
+}
+
+export type ScheduledDownload =
+  | { id: string; type: 'episode'; episode: Episode; label: string; queuedAt: number }
+  | { id: string; type: 'zip'; url: string; filename: string; label: string; queuedAt: number };
+
+export async function loadScheduledDownloads(): Promise<ScheduledDownload[]> {
+  const raw = await AsyncStorage.getItem(KEYS.scheduledDownloads);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export async function saveScheduledDownloads(items: ScheduledDownload[]): Promise<void> {
+  await AsyncStorage.setItem(KEYS.scheduledDownloads, JSON.stringify(items));
 }

@@ -11,7 +11,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { API_BASE_URL } from '../config';
 import { downloadZip, zipExistsFor, type ZipDownloadProgress } from '../downloads';
 import { AppFooter } from '../components/AppFooter';
-import { checkWifiAllowed } from '../utils/network';
+import { promptDownload } from '../downloadPrompt';
+import { useScheduledDownloads } from '../ScheduledDownloadsContext';
 import { useSettings } from '../SettingsContext';
 import type { HomeStackParamList } from '../navigation/HomeStackNavigator';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -27,6 +28,7 @@ export function ChapterScreen({ route, navigation }: Props) {
   const { isListened } = useListened();
   const { colors } = useTheme();
   const { wifiOnlyDownloads } = useSettings();
+  const { scheduleDownload } = useScheduledDownloads();
   const [zipProgress, setZipProgress] = useState<ZipDownloadProgress | null>(null);
   const [zipDownloaded, setZipDownloaded] = useState(false);
 
@@ -63,7 +65,18 @@ export function ChapterScreen({ route, navigation }: Props) {
   };
 
   const handleDownloadZip = async () => {
-    if (!(await checkWifiAllowed(wifiOnlyDownloads))) return;
+    const label = `संपूर्ण ${chapter.label} (ZIP)`;
+    const decision = await promptDownload(label, chapter.zipSizeBytes, wifiOnlyDownloads);
+    if (decision === 'cancel') return;
+    if (decision === 'schedule') {
+      await scheduleDownload({
+        type: 'zip',
+        url: `${API_BASE_URL}/download/book/${bookId}/${chapterSlug}`,
+        filename: zipFilename,
+        label,
+      });
+      return;
+    }
     setZipProgress({ bytesWritten: 0, contentLength: 0 });
     try {
       await downloadZip(
@@ -77,6 +90,16 @@ export function ChapterScreen({ route, navigation }: Props) {
     } finally {
       setZipProgress(null);
     }
+  };
+
+  const handleEpisodeDownload = async (episode: Episode) => {
+    const decision = await promptDownload(episode.label, episode.sizeBytes, wifiOnlyDownloads);
+    if (decision === 'cancel') return;
+    if (decision === 'schedule') {
+      await scheduleDownload({ type: 'episode', episode, label: episode.label });
+      return;
+    }
+    download(episode);
   };
 
   return (
@@ -138,7 +161,7 @@ export function ChapterScreen({ route, navigation }: Props) {
             <Pressable
               hitSlop={10}
               style={styles.dlBtn}
-              onPress={() => (downloaded ? removeDownload(item.filename) : download(item))}>
+              onPress={() => (downloaded ? removeDownload(item.filename) : handleEpisodeDownload(item))}>
               {downloadFraction !== undefined ? (
                 <ActivityIndicator size="small" color={colors.accent} />
               ) : (

@@ -4,6 +4,7 @@ import type { DrawerScreenProps } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSettings } from '../SettingsContext';
 import { useDownloads } from '../DownloadsContext';
+import { useScheduledDownloads } from '../ScheduledDownloadsContext';
 import { useTheme } from '../theme/ThemeContext';
 import { formatBytes, getDownloadsSummary, type DownloadsSummary } from '../downloads';
 import { toDevanagari } from '../utils/devanagari';
@@ -17,6 +18,7 @@ export function SettingsScreen({ navigation }: Props) {
   const { autoDownloadNext5, setAutoDownloadNext5, wifiOnlyDownloads, setWifiOnlyDownloads } =
     useSettings();
   const { clearAllDownloads } = useDownloads();
+  const { scheduled, cancelScheduled } = useScheduledDownloads();
   const { colors } = useTheme();
   const [summary, setSummary] = useState<DownloadsSummary | null>(null);
   const [clearing, setClearing] = useState(false);
@@ -89,6 +91,31 @@ export function SettingsScreen({ navigation }: Props) {
           thumbColor="#ffffff"
         />
       </View>
+
+      {scheduled.length > 0 && (
+        <>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            नियोजित डाउनलोड्स (Wi-Fi ची वाट पाहत आहेत)
+          </Text>
+          {scheduled.map(item => (
+            <View
+              key={item.id}
+              style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.rowText}>
+                <Text style={[styles.rowLabel, { color: colors.text }]} numberOfLines={1}>
+                  {item.label}
+                </Text>
+                <Text style={[styles.rowDescription, { color: colors.textSecondary }]}>
+                  Wi-Fi उपलब्ध झाल्यावर आपोआप डाउनलोड होईल
+                </Text>
+              </View>
+              <Pressable hitSlop={10} onPress={() => cancelScheduled(item.id)}>
+                <Text style={[styles.rowLabel, { color: colors.accent }]}>रद्द करा</Text>
+              </Pressable>
+            </View>
+          ))}
+        </>
+      )}
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>डाउनलोड्स</Text>
       <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}>

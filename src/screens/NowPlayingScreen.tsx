@@ -10,6 +10,9 @@ import { useDownloads } from '../DownloadsContext';
 import { useTheme } from '../theme/ThemeContext';
 import { OptionPopup, type PopupOption } from '../components/OptionPopup';
 import { toDevanagari } from '../utils/devanagari';
+import { promptDownload } from '../downloadPrompt';
+import { useScheduledDownloads } from '../ScheduledDownloadsContext';
+import { useSettings } from '../SettingsContext';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 function formatTime(sec: number): string {
@@ -69,6 +72,8 @@ export function NowPlayingScreen({ navigation }: Props) {
     setSleepOption,
   } = usePlayer();
   const { isDownloaded, isDownloading, download, removeDownload } = useDownloads();
+  const { scheduleDownload } = useScheduledDownloads();
+  const { wifiOnlyDownloads } = useSettings();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [activePopup, setActivePopup] = useState<'speed' | 'sleep' | null>(null);
@@ -83,6 +88,17 @@ export function NowPlayingScreen({ navigation }: Props) {
   const downloaded = isDownloaded(filename);
   const downloading = isDownloading(filename);
   const skip = (delta: number) => seekTo(Math.max(0, Math.min(duration || 0, currentTime + delta)));
+
+  const handleDownload = async () => {
+    const episode = currentTrack.episode;
+    const decision = await promptDownload(episode.label, episode.sizeBytes, wifiOnlyDownloads);
+    if (decision === 'cancel') return;
+    if (decision === 'schedule') {
+      await scheduleDownload({ type: 'episode', episode, label: episode.label });
+      return;
+    }
+    download(episode);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -178,7 +194,7 @@ export function NowPlayingScreen({ navigation }: Props) {
         <Pressable
           style={[styles.pill, styles.pillIconText, { borderColor: colors.border, backgroundColor: colors.surface }]}
           hitSlop={6}
-          onPress={() => (downloaded ? removeDownload(filename) : download(currentTrack.episode))}>
+          onPress={() => (downloaded ? removeDownload(filename) : handleDownload())}>
           {downloading ? (
             <ActivityIndicator size="small" color={colors.accent} />
           ) : (
