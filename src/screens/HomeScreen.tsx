@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   Linking,
   Pressable,
@@ -8,6 +9,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AntDesign } from '@expo/vector-icons';
@@ -38,6 +40,14 @@ export function HomeScreen({ navigation }: Props) {
   const [home, setHome] = useState<HomeContent | null>(null);
   const [pustake, setPustake] = useState<PustakBook[] | null>(null);
   const { colors } = useTheme();
+  const { width: winW } = useWindowDimensions();
+  // Video shelf: ~2.15 tiles visible per screen (2 full + a peek of the
+  // next one, hinting there's more to scroll to) rather than one full-width
+  // video per swipe — same "several visible in a row" shelf as the
+  // website's carousel. `- 40` matches `section`'s 20px horizontal padding
+  // on each side below.
+  const VIDEO_GAP = 12;
+  const videoItemWidth = (winW - 40 - VIDEO_GAP) / 2.15;
 
   useEffect(() => {
     fetchHome().then(setHome).catch(() => {});
@@ -98,6 +108,7 @@ export function HomeScreen({ navigation }: Props) {
               key={book.id}
               style={[styles.tile, { backgroundColor: colors.fillTertiary }]}
               onPress={() => navigation.navigate('Book', { bookId: book.id })}>
+              <AntDesign name="play-circle" size={22} color={colors.accent} style={styles.tileIcon} />
               <Text style={[styles.tileTitle, { color: colors.text }]}>{book.name}</Text>
               <Text style={[styles.tileCount, { color: colors.textSecondary }]}>
                 {toDevanagari(book.totalEpisodes)} भाग
@@ -126,26 +137,45 @@ export function HomeScreen({ navigation }: Props) {
         )}
       </View>
 
-      {/* YouTube */}
+      {/* YouTube: a horizontal shelf (native mobile equivalent of the
+          website's antd Carousel — same "several tiles visible in a row,
+          scroll for more" idea as a Netflix/YouTube-app video row) rather
+          than a static 2-up grid or one-video-per-swipe. snapToInterval
+          gives a gentle per-tile snap on release; no dots or arrow
+          buttons — with ~2.15 tiles visible per screen and a deliberate
+          partial peek of the next one, the fact that it scrolls is already
+          visually obvious, and touch-scroll is the native gesture here
+          (same reasoning as the पुस्तके reader's swipe-to-turn-page). Holds
+          every entry in home.youtube.videoIds, not just the first
+          couple — scales as more are added on the backend with no UI
+          change here. */}
       <View style={[styles.section, { backgroundColor: colors.fillAlter }]}>
         <View style={styles.sectionHeadCenter}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>यूट्यूब चॅनल</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>अमृतकण चॅनल</Text>
           <Pressable onPress={() => Linking.openURL(home.youtube.channelUrl)}>
             <Text style={[styles.link, { color: colors.accent }]}>
               {home.youtube.channelHandle} चॅनलला भेट द्या
             </Text>
           </Pressable>
         </View>
-        <View style={styles.videoGrid}>
-          {home.youtube.videoIds.map(id => (
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={videoItemWidth + VIDEO_GAP}
+          snapToAlignment="start"
+          style={styles.videoCarouselWrap}
+          contentContainerStyle={{ gap: VIDEO_GAP }}
+          data={home.youtube.videoIds}
+          keyExtractor={id => id}
+          renderItem={({ item: id }) => (
             <Pressable
-              key={id}
-              style={styles.videoTile}
+              style={[styles.videoCarouselTile, { width: videoItemWidth }]}
               onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${id}`)}>
               <Image source={{ uri: youtubeThumbnail(id) }} style={styles.videoThumb} />
             </Pressable>
-          ))}
-        </View>
+          )}
+        />
       </View>
 
       {/* पुस्तके: digital-only book reader, mirrors the website section of
@@ -166,14 +196,30 @@ export function HomeScreen({ navigation }: Props) {
                     ?.getParent<NativeStackNavigationProp<RootStackParamList>>()
                     ?.navigate('PustakReader', { bookId: book.id })
                 }>
-                <Image source={{ uri: resolveUrl(book.thumbnailUrl) }} style={styles.pustakCover} />
-                <Text style={[styles.pustakTitle, { color: colors.text }]} numberOfLines={1}>
-                  {book.title}
-                </Text>
-                {!!book.author && (
-                  <Text style={[styles.pustakAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {book.author}
-                  </Text>
+                {({ pressed }) => (
+                  <>
+                    <View style={styles.pustakCoverWrap}>
+                      <Image
+                        source={{ uri: resolveUrl(book.thumbnailUrl) }}
+                        style={[styles.pustakCover, pressed && styles.pustakCoverPressed]}
+                      />
+                      <View
+                        style={[
+                          styles.pustakReadBadge,
+                          pressed && { backgroundColor: colors.accent, transform: [{ scale: 1.12 }] },
+                        ]}>
+                        <AntDesign name="book" size={16} color="#ffffff" />
+                      </View>
+                    </View>
+                    <Text style={[styles.pustakTitle, { color: colors.text }]} numberOfLines={1}>
+                      {book.title}
+                    </Text>
+                    {!!book.author && (
+                      <Text style={[styles.pustakAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {book.author}
+                      </Text>
+                    )}
+                  </>
                 )}
               </Pressable>
             ))}
@@ -185,7 +231,7 @@ export function HomeScreen({ navigation }: Props) {
       <View style={[styles.section, { backgroundColor: colors.surface }]}>
         <Text style={[styles.sectionTitle, styles.centerText, { color: colors.text }]}>{home.aboutHeading}</Text>
         <Text style={[styles.paragraph, { color: colors.text }]}>{home.aboutText}</Text>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>{home.aboutMeHeading}</Text>
+        <Text style={[styles.aboutMeHeading, { color: colors.text }]}>{home.aboutMeHeading}</Text>
         <View style={styles.aboutMeCol}>
           <Image source={{ uri: resolveUrl(home.aboutMePhoto) }} style={styles.aboutMePhoto} />
           <Text style={[styles.paragraph, { color: colors.text }]}>{home.aboutMeText}</Text>
@@ -205,8 +251,8 @@ const styles = StyleSheet.create({
   offlineBanner: { alignItems: 'center', paddingVertical: 8 },
   section: { paddingVertical: 32, paddingHorizontal: 20 },
   heroCenter: { alignItems: 'center' },
-  tilakImage: { width: 12, height: 17, resizeMode: 'contain', marginBottom: 8 },
-  tilakText: { fontSize: 16, fontWeight: '600', marginBottom: 16 },
+  tilakImage: { width: 18, height: 25.5, resizeMode: 'contain', marginTop: -8, marginBottom: 8 },
+  tilakText: { fontSize: 16, fontWeight: '600', marginBottom: 24 },
   heroImage: { width: 120, height: 120, borderRadius: 60, marginBottom: 16 },
   heroTitle: { fontSize: 32, fontWeight: '800', marginBottom: 8 },
   heroTagline: { fontSize: 16, textAlign: 'center', paddingHorizontal: 16 },
@@ -222,6 +268,7 @@ const styles = StyleSheet.create({
   offlineButtonText: { fontSize: 14, fontWeight: '600' },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 40 },
   tile: { flexBasis: '47%', flexGrow: 1, borderRadius: 16, paddingVertical: 28, paddingHorizontal: 16, alignItems: 'center' },
+  tileIcon: { marginBottom: 8 },
   tileTitle: { fontSize: 19, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
   tileCount: { fontSize: 13 },
   podcastSection: { marginTop: 40, alignItems: 'center' },
@@ -231,6 +278,7 @@ const styles = StyleSheet.create({
   podcastLabelText: { fontSize: 14 },
   sectionHeadCenter: { alignItems: 'center' },
   sectionTitle: { fontSize: 22, fontWeight: '700' },
+  aboutMeHeading: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
   centerText: { textAlign: 'center', marginBottom: 12 },
   link: { fontSize: 14, marginTop: 8 },
   pustakGrid: {
@@ -241,11 +289,24 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   pustakTile: { width: 130 },
-  pustakCover: { width: '100%', aspectRatio: 2 / 3, borderRadius: 8 },
+  pustakCoverWrap: { position: 'relative', borderRadius: 8, overflow: 'hidden' },
+  pustakCover: { width: '100%', aspectRatio: 2 / 3 },
+  pustakCoverPressed: { opacity: 0.7 },
+  pustakReadBadge: {
+    position: 'absolute',
+    left: 8,
+    bottom: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pustakTitle: { fontSize: 14, fontWeight: '600', marginTop: 8, textAlign: 'center' },
   pustakAuthor: { fontSize: 12, textAlign: 'center' },
-  videoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 16 },
-  videoTile: { flexBasis: '47%', flexGrow: 1, aspectRatio: 16 / 9, borderRadius: 8, overflow: 'hidden' },
+  videoCarouselWrap: { marginTop: 16 },
+  videoCarouselTile: { aspectRatio: 16 / 9, borderRadius: 8, overflow: 'hidden' },
   videoThumb: { width: '100%', height: '100%' },
   paragraph: { fontSize: 15, lineHeight: 22 },
   // React Native's Text can't wrap multiple lines around a floated image
