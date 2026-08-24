@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchPustake, resolvePustakPageUrl } from '../api';
 import { loadPustakPage, savePustakPage } from '../storage';
@@ -42,6 +43,7 @@ export function PustakReaderScreen({ route, navigation }: Props) {
   // the right page instead of fetching page 1 and correcting afterward.
   const [page, setPage] = useState<number | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [tocVisible, setTocVisible] = useState(false);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -93,6 +95,12 @@ export function PustakReaderScreen({ route, navigation }: Props) {
 
   const goNext = () => setPage(p => (p !== null && book ? Math.min(book.pageCount, p + 1) : p));
   const goPrev = () => setPage(p => (p !== null ? Math.max(1, p - 1) : p));
+  // Shared by the chapter list and the progress slider below — both jump
+  // straight to an arbitrary page, unlike goNext/goPrev's one-step moves.
+  const goToPage = (target: number) => {
+    if (!book) return;
+    setPage(Math.max(1, Math.min(book.pageCount, target)));
+  };
 
   const pinch = Gesture.Pinch()
     .onUpdate(e => {
@@ -204,7 +212,29 @@ export function PustakReaderScreen({ route, navigation }: Props) {
         </View>
       </GestureDetector>
 
+      {/* Seekable progress bar — same seek-slider pattern as the audio
+          player (NowPlayingScreen.tsx), scrubbing pages instead of
+          seconds. Only commits to `page` on release (onSlidingComplete),
+          so dragging across the book doesn't fetch every page in between. */}
+      <View style={styles.sliderRow}>
+        <Slider
+          minimumValue={1}
+          maximumValue={book.pageCount}
+          step={1}
+          value={page}
+          onSlidingComplete={goToPage}
+          minimumTrackTintColor={colors.accent}
+          maximumTrackTintColor="rgba(255,255,255,0.25)"
+          thumbTintColor={colors.accent}
+        />
+      </View>
+
       <View style={styles.footer}>
+        {book.chapters.length > 0 && (
+          <Pressable onPress={() => setTocVisible(true)} hitSlop={12} aria-label="अनुक्रमणिका">
+            <AntDesign name="unordered-list" size={20} color="#ffffff" />
+          </Pressable>
+        )}
         <Pressable onPress={goPrev} disabled={page <= 1} hitSlop={12} aria-label="मागील पान">
           <AntDesign name="left" size={22} color={page <= 1 ? 'rgba(255,255,255,0.3)' : '#ffffff'} />
         </Pressable>
@@ -215,6 +245,32 @@ export function PustakReaderScreen({ route, navigation }: Props) {
           <AntDesign name="right" size={22} color={page >= book.pageCount ? 'rgba(255,255,255,0.3)' : '#ffffff'} />
         </Pressable>
       </View>
+
+      <Modal visible={tocVisible} transparent animationType="slide" onRequestClose={() => setTocVisible(false)}>
+        <Pressable style={styles.tocBackdrop} onPress={() => setTocVisible(false)}>
+          <Pressable style={styles.tocSheet} onPress={() => {}}>
+            <Text style={styles.tocTitle}>अनुक्रमणिका</Text>
+            <FlatList
+              data={book.chapters}
+              keyExtractor={item => String(item.page)}
+              renderItem={({ item, index }) => {
+                const next = book.chapters[index + 1];
+                const isCurrent = page >= item.page && (!next || page < next.page);
+                return (
+                  <Pressable
+                    style={[styles.tocItem, isCurrent && { backgroundColor: 'rgba(255,255,255,0.1)' }]}
+                    onPress={() => {
+                      goToPage(item.page);
+                      setTocVisible(false);
+                    }}>
+                    <Text style={[styles.tocItemText, isCurrent && styles.tocItemTextCurrent]}>{item.title}</Text>
+                  </Pressable>
+                );
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -238,8 +294,22 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#ffffff', fontSize: 16, fontWeight: '700', flex: 1, marginRight: 12 },
   imageArea: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   pageImage: { width: '100%', height: '100%' },
+  sliderRow: { paddingHorizontal: 20 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, paddingVertical: 14 },
   pageText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
   closeButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
   closeButtonText: { color: '#ffffff', fontWeight: '600' },
+  tocBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  tocSheet: {
+    maxHeight: '70%',
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  tocTitle: { color: '#ffffff', fontSize: 16, fontWeight: '700', paddingHorizontal: 20, marginBottom: 8 },
+  tocItem: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, marginHorizontal: 8 },
+  tocItemText: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
+  tocItemTextCurrent: { color: '#ffffff', fontWeight: '700' },
 });

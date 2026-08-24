@@ -54,6 +54,11 @@ export type HomeContent = {
   };
 };
 
+export type PustakChapter = {
+  title: string;
+  page: number;
+};
+
 export type PustakBook = {
   id: string;
   title: string;
@@ -61,6 +66,7 @@ export type PustakBook = {
   author: string;
   pageCount: number;
   thumbnailUrl: string;
+  chapters: PustakChapter[];
 };
 
 // Identifies an episode within its book/chapter context, e.g. for playback
