@@ -266,8 +266,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   offlineButtonText: { fontSize: 14, fontWeight: '600' },
-  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 40 },
-  tile: { flexBasis: '47%', flexGrow: 1, borderRadius: 16, paddingVertical: 28, paddingHorizontal: 16, alignItems: 'center' },
+  // One tile per row, stacked — an odd book count in a 2-up wrap grid left
+  // the last tile alone on its own row and (via flexGrow) stretched to full
+  // width, looking oversized next to the paired tiles above it.
+  tileGrid: { gap: 16, marginTop: 40 },
+  tile: { borderRadius: 16, paddingVertical: 28, paddingHorizontal: 16, alignItems: 'center' },
   tileIcon: { marginBottom: 8 },
   tileTitle: { fontSize: 19, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
   tileCount: { fontSize: 13 },
