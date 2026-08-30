@@ -3,6 +3,8 @@ export type Episode = {
   label: string;
   audioUrl: string;
   sizeBytes: number;
+  /** Playback length in whole seconds; null when not in the server's duration cache. */
+  durationSeconds: number | null;
 };
 
 export type Chapter = {

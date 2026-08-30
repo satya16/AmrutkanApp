@@ -20,6 +20,15 @@ import type { Episode } from '../types';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Chapter'>;
 
+/** Coarse fixed-length label, matching the website: "22 मि" / "1 ता 05 मि". */
+function formatDurationLabel(sec: number): string {
+  if (!isFinite(sec) || sec <= 0) return '';
+  let m = Math.round(sec / 60);
+  const h = Math.floor(m / 60);
+  m = m % 60;
+  return h > 0 ? `${h} ता ${String(m).padStart(2, '0')} मि` : `${m} मि`;
+}
+
 export function ChapterScreen({ route, navigation }: Props) {
   const { bookId, chapterSlug } = route.params;
   const { library, loading } = useLibrary();
@@ -158,6 +167,14 @@ export function ChapterScreen({ route, navigation }: Props) {
                 aria-label="पूर्ण ऐकले"
               />
             )}
+            {item.durationSeconds ? (
+              <View style={styles.duration}>
+                <AntDesign name="clock-circle" size={11} color={colors.textSecondary} />
+                <Text style={[styles.durationText, { color: colors.textSecondary }]}>
+                  {formatDurationLabel(item.durationSeconds)}
+                </Text>
+              </View>
+            ) : null}
             <Pressable
               hitSlop={10}
               style={styles.dlBtn}
@@ -204,6 +221,8 @@ const styles = StyleSheet.create({
   label: { flex: 1, fontSize: 14 },
   labelPlaying: { fontWeight: '600' },
   listenedTick: { marginLeft: -4 },
+  duration: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  durationText: { fontSize: 12 },
   dlBtn: {
     width: 30,
     height: 30,
