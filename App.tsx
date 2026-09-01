@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import React from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import type { LinkingOptions } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -13,6 +14,20 @@ import { ListenedProvider } from './src/ListenedContext';
 import { PlayerProvider } from './src/player/PlayerContext';
 import { MiniPlayer } from './src/player/MiniPlayer';
 import { RootNavigator, type RootStackParamList } from './src/navigation/RootNavigator';
+
+// Shared https://amrutkan.org/play/<book>/<chapter>/<episode> links open
+// straight to the Now Playing screen (Android App Links / iOS Universal
+// Links; also the amrutkan:// scheme). Everything else on the domain is left
+// to the browser. NowPlayingScreen reads these params and cues the episode.
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['https://amrutkan.org', 'https://www.amrutkan.org', 'amrutkan://'],
+  config: {
+    initialRouteName: 'Main',
+    screens: {
+      NowPlaying: 'play/:bookId/:chapterSlug/:episodeSlug',
+    },
+  },
+};
 
 function AppShell() {
   const { mode, colors } = useTheme();
@@ -39,7 +54,7 @@ function App() {
               <ScheduledDownloadsProvider>
                 <ListenedProvider>
                   <PlayerProvider>
-                    <NavigationContainer>
+                    <NavigationContainer linking={linking}>
                       <AppShell />
                     </NavigationContainer>
                   </PlayerProvider>

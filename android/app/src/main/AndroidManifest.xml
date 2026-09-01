@@ -26,6 +26,23 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- App Links: shared https://amrutkan.org/play/... links open the app
+             directly once /.well-known/assetlinks.json is live with this
+             app's Play signing SHA-256 (until then Android just opens the
+             browser, which shows the same Now Playing screen). -->
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" android:host="amrutkan.org" android:pathPrefix="/play" />
+            <data android:scheme="https" android:host="www.amrutkan.org" android:pathPrefix="/play" />
+        </intent-filter>
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="amrutkan" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

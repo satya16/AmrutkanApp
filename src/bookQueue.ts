@@ -9,6 +9,7 @@ export function buildBookQueue(book: Book): EpisodeRef[] {
     chapter.episodes.map(episode => ({
       bookId: book.id,
       bookName: book.name,
+      chapterSlug: chapter.slug,
       chapterLabel: chapter.label,
       episode,
     })),

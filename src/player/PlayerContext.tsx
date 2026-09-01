@@ -44,6 +44,10 @@ type PlayerContextValue = {
   sleepOption: SleepOption;
   sleepRemainingMinutes: number | null;
   loadQueueAndPlay: (queue: EpisodeRef[], startIndex: number) => void;
+  // Same as loadQueueAndPlay but leaves playback paused — for opening the
+  // Now Playing screen from a shared /play/... deep link, where the user
+  // taps play themselves.
+  cueQueue: (queue: EpisodeRef[], startIndex: number) => void;
   togglePlayPause: () => void;
   seekTo: (seconds: number) => void;
   playNext: () => void;
@@ -185,8 +189,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     saveSpeed(value);
   }, []);
 
-  const loadQueueAndPlay = useCallback(
-    async (q: EpisodeRef[], startIndex: number) => {
+  const loadQueue = useCallback(
+    async (q: EpisodeRef[], startIndex: number, autoplay: boolean) => {
       const track = q[startIndex];
       if (!track) return;
       setQueue(q);
@@ -205,9 +209,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       await TrackPlayer.add(tracks);
       await TrackPlayer.skip(startIndex);
       await TrackPlayer.setRate(speed);
-      await TrackPlayer.play();
+      if (autoplay) await TrackPlayer.play();
 
-      if (autoDownloadNext5) {
+      // Only warm the next few downloads once the user has actually
+      // committed to listening — not for a link they've merely opened.
+      if (autoplay && autoDownloadNext5) {
         q.slice(startIndex + 1, startIndex + 6).forEach(ref => {
           if (!isDownloaded(ref.episode.filename) && !isDownloading(ref.episode.filename)) {
             download(ref.episode, { silent: true }).catch(() => {});
@@ -216,6 +222,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [getPlayableUri, speed, autoDownloadNext5, isDownloaded, isDownloading, download],
+  );
+
+  const loadQueueAndPlay = useCallback(
+    (q: EpisodeRef[], startIndex: number) => loadQueue(q, startIndex, true),
+    [loadQueue],
+  );
+  const cueQueue = useCallback(
+    (q: EpisodeRef[], startIndex: number) => loadQueue(q, startIndex, false),
+    [loadQueue],
   );
 
   const playNext = useCallback(() => {
@@ -268,6 +283,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           ? Math.max(0, Math.ceil((sleepEndAtRef.current - Date.now()) / 60000))
           : null,
       loadQueueAndPlay,
+      cueQueue,
       togglePlayPause,
       seekTo,
       playNext,
@@ -287,6 +303,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       speed,
       sleepOption,
       loadQueueAndPlay,
+      cueQueue,
       togglePlayPause,
       seekTo,
       playNext,

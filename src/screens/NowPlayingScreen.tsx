@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,10 +7,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ARTWORK_URL } from '../config';
 import { SPEED_PRESETS, usePlayer, type SleepOption } from '../player/PlayerContext';
 import { useDownloads } from '../DownloadsContext';
+import { useLibrary } from '../useLibrary';
+import { buildBookQueue } from '../bookQueue';
 import { useTheme } from '../theme/ThemeContext';
 import { OptionPopup, type PopupOption } from '../components/OptionPopup';
 import { toDevanagari } from '../utils/devanagari';
 import { promptDownload } from '../downloadPrompt';
+import { episodePlayPath, shareUrl } from '../utils/share';
 import { useScheduledDownloads } from '../ScheduledDownloadsContext';
 import { useSettings } from '../SettingsContext';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -52,7 +55,7 @@ function sleepLabel(sleepOption: SleepOption, sleepRemainingMinutes: number | nu
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NowPlaying'>;
 
-export function NowPlayingScreen({ navigation }: Props) {
+export function NowPlayingScreen({ navigation, route }: Props) {
   const {
     currentTrack,
     isPlaying,
@@ -70,17 +73,65 @@ export function NowPlayingScreen({ navigation }: Props) {
     playPrevious,
     setSpeed,
     setSleepOption,
+    cueQueue,
   } = usePlayer();
   const { isDownloaded, isDownloading, download, removeDownload } = useDownloads();
   const { scheduleDownload } = useScheduledDownloads();
   const { wifiOnlyDownloads } = useSettings();
+  const { library } = useLibrary();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [activePopup, setActivePopup] = useState<'speed' | 'sleep' | null>(null);
   const [helpVisible, setHelpVisible] = useState(false);
 
+  // Reached via a shared /play/<book>/<chapter>/<episode> deep link — resolve
+  // it against the library and cue that episode (paused; the user taps play).
+  const deepLink = route.params;
+  const resolvedKeyRef = useRef<string | null>(null);
+  const [deepLinkFailed, setDeepLinkFailed] = useState(false);
+
+  useEffect(() => {
+    if (!deepLink?.bookId || !deepLink.chapterSlug || !deepLink.episodeSlug || !library) {
+      return;
+    }
+    const key = `${deepLink.bookId}/${deepLink.chapterSlug}/${deepLink.episodeSlug}`;
+    if (resolvedKeyRef.current === key) return;
+    resolvedKeyRef.current = key;
+
+    const book = library.books.find(b => b.id === deepLink.bookId);
+    const chapter = book?.chapters.find(c => c.slug === deepLink.chapterSlug);
+    const episode = chapter?.episodes.find(
+      e => e.filename.replace(/\.(mp3|m4a)$/i, '') === deepLink.episodeSlug,
+    );
+    if (!book || !chapter || !episode) {
+      setDeepLinkFailed(true);
+      return;
+    }
+    if (currentTrack?.episode.filename === episode.filename) return; // already loaded
+    const queue = buildBookQueue(book);
+    cueQueue(queue, queue.findIndex(r => r.episode.filename === episode.filename));
+  }, [deepLink, library, currentTrack, cueQueue]);
+
+  // Nothing to show and not (or no longer) waiting on a deep link → close the
+  // screen. Done in an effect, not the render body, so it doesn't update the
+  // navigator mid-render.
+  const awaitingDeepLink = !!deepLink?.episodeSlug && !deepLinkFailed;
+  useEffect(() => {
+    if (!currentTrack && !awaitingDeepLink) {
+      navigation.goBack();
+    }
+  }, [currentTrack, awaitingDeepLink, navigation]);
+
   if (!currentTrack) {
-    navigation.goBack();
+    // A deep link that's still resolving (library loading / cue in flight) —
+    // hold on a spinner rather than showing a blank screen.
+    if (awaitingDeepLink) {
+      return (
+        <View style={[styles.container, styles.center, { backgroundColor: colors.bg }]}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      );
+    }
     return null;
   }
 
@@ -205,6 +256,13 @@ export function NowPlayingScreen({ navigation }: Props) {
           )}
         </Pressable>
         <Pressable
+          style={[styles.pill, styles.pillIconText, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          hitSlop={6}
+          onPress={() => shareUrl(episodePlayPath(currentTrack))}>
+          <AntDesign name="share-alt" size={14} color={colors.text} />
+          <Text style={[styles.pillText, { color: colors.text }]}>शेअर</Text>
+        </Pressable>
+        <Pressable
           style={[styles.pill, styles.pillIcon, { borderColor: colors.border, backgroundColor: colors.surface }]}
           onPress={() => setHelpVisible(true)}
           aria-label="मदत">
@@ -248,6 +306,9 @@ export function NowPlayingScreen({ navigation }: Props) {
             <Text style={[styles.helpLine, { color: colors.text }]}>
               <Text style={styles.helpBold}>डाउनलोड</Text> — भाग डाउनलोड करा
             </Text>
+            <Text style={[styles.helpLine, { color: colors.text }]}>
+              <Text style={styles.helpBold}>शेअर</Text> — हा भाग शेअर करा
+            </Text>
             <Pressable style={[styles.helpClose, { backgroundColor: colors.accent }]} onPress={() => setHelpVisible(false)}>
               <Text style={styles.helpCloseText}>ठीक आहे</Text>
             </Pressable>
@@ -261,6 +322,10 @@ export function NowPlayingScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',

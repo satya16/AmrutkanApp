@@ -77,6 +77,7 @@ export type PustakBook = {
 export type EpisodeRef = {
   bookId: string;
   bookName: string;
+  chapterSlug: string;
   chapterLabel: string;
   episode: Episode;
 };
