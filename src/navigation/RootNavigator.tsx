@@ -9,7 +9,7 @@ export type RootStackParamList = {
   // Params are only present when reached via a shared /play/... deep link;
   // opened normally (MiniPlayer expand, list tap) it takes none.
   NowPlaying:
-    | { bookId: string; chapterSlug: string; episodeSlug: string }
+    | { bookId: string; chapterSlug: string; episodeNum: string }
     | undefined;
   PustakReader: { bookId: string };
 };

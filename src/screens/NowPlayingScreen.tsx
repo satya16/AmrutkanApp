@@ -84,25 +84,26 @@ export function NowPlayingScreen({ navigation, route }: Props) {
   const [activePopup, setActivePopup] = useState<'speed' | 'sleep' | null>(null);
   const [helpVisible, setHelpVisible] = useState(false);
 
-  // Reached via a shared /play/<book>/<chapter>/<episode> deep link — resolve
-  // it against the library and cue that episode (paused; the user taps play).
+  // Reached via a shared /play/<book>/<chapter>/<n> deep link — resolve it
+  // against the library (n is the episode's 1-based position in the chapter)
+  // and cue that episode (paused; the user taps play).
   const deepLink = route.params;
   const resolvedKeyRef = useRef<string | null>(null);
   const [deepLinkFailed, setDeepLinkFailed] = useState(false);
 
   useEffect(() => {
-    if (!deepLink?.bookId || !deepLink.chapterSlug || !deepLink.episodeSlug || !library) {
+    if (!deepLink?.bookId || !deepLink.chapterSlug || !deepLink.episodeNum || !library) {
       return;
     }
-    const key = `${deepLink.bookId}/${deepLink.chapterSlug}/${deepLink.episodeSlug}`;
+    const key = `${deepLink.bookId}/${deepLink.chapterSlug}/${deepLink.episodeNum}`;
     if (resolvedKeyRef.current === key) return;
     resolvedKeyRef.current = key;
 
     const book = library.books.find(b => b.id === deepLink.bookId);
     const chapter = book?.chapters.find(c => c.slug === deepLink.chapterSlug);
-    const episode = chapter?.episodes.find(
-      e => e.filename.replace(/\.(mp3|m4a)$/i, '') === deepLink.episodeSlug,
-    );
+    const index = Number(deepLink.episodeNum) - 1;
+    const episode =
+      chapter && Number.isInteger(index) && index >= 0 ? chapter.episodes[index] : undefined;
     if (!book || !chapter || !episode) {
       setDeepLinkFailed(true);
       return;
@@ -115,7 +116,7 @@ export function NowPlayingScreen({ navigation, route }: Props) {
   // Nothing to show and not (or no longer) waiting on a deep link → close the
   // screen. Done in an effect, not the render body, so it doesn't update the
   // navigator mid-render.
-  const awaitingDeepLink = !!deepLink?.episodeSlug && !deepLinkFailed;
+  const awaitingDeepLink = !!deepLink?.episodeNum && !deepLinkFailed;
   useEffect(() => {
     if (!currentTrack && !awaitingDeepLink) {
       navigation.goBack();
@@ -139,6 +140,15 @@ export function NowPlayingScreen({ navigation, route }: Props) {
   const downloaded = isDownloaded(filename);
   const downloading = isDownloading(filename);
   const skip = (delta: number) => seekTo(Math.max(0, Math.min(duration || 0, currentTime + delta)));
+
+  const handleShare = () => {
+    const book = library?.books.find(b => b.id === currentTrack.bookId);
+    const chapter = book?.chapters.find(c => c.slug === currentTrack.chapterSlug);
+    const n = (chapter?.episodes.findIndex(e => e.filename === filename) ?? -1) + 1;
+    if (book && chapter && n > 0) {
+      shareUrl(episodePlayPath(book.id, chapter.slug, n));
+    }
+  };
 
   const handleDownload = async () => {
     const episode = currentTrack.episode;
@@ -258,7 +268,7 @@ export function NowPlayingScreen({ navigation, route }: Props) {
         <Pressable
           style={[styles.pill, styles.pillIconText, { borderColor: colors.border, backgroundColor: colors.surface }]}
           hitSlop={6}
-          onPress={() => shareUrl(episodePlayPath(currentTrack))}>
+          onPress={handleShare}>
           <AntDesign name="share-alt" size={14} color={colors.text} />
           <Text style={[styles.pillText, { color: colors.text }]}>शेअर</Text>
         </Pressable>

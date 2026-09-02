@@ -1,6 +1,5 @@
 import { Share } from 'react-native';
 import { API_BASE_URL } from '../config';
-import type { EpisodeRef } from '../types';
 
 export async function shareUrl(path: string): Promise<void> {
   const url = `${API_BASE_URL}${path}`;
@@ -12,12 +11,10 @@ export async function shareUrl(path: string): Promise<void> {
 }
 
 /** Site path for an episode's Now Playing deep link:
- * /play/<bookId>/<chapterSlug>/<filename without extension>. Opens the app
- * (Android App Links / iOS Universal Links) when installed, the website
- * otherwise. Mirrors the website's own share button. */
-export function episodePlayPath(ref: EpisodeRef): string {
-  const stem = ref.episode.filename.replace(/\.(mp3|m4a)$/i, '');
-  return `/play/${encodeURIComponent(ref.bookId)}/${encodeURIComponent(
-    ref.chapterSlug,
-  )}/${encodeURIComponent(stem)}`;
+ * /play/<bookId>/<chapterSlug>/<n>, where n is the episode's 1-based
+ * position within its chapter. Opens the app (Android App Links / iOS
+ * Universal Links) when installed, the website otherwise. Mirrors the
+ * website's own share button. */
+export function episodePlayPath(bookId: string, chapterSlug: string, episodeNumber: number): string {
+  return `/play/${encodeURIComponent(bookId)}/${encodeURIComponent(chapterSlug)}/${episodeNumber}`;
 }

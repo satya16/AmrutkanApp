@@ -15,16 +15,16 @@ import { PlayerProvider } from './src/player/PlayerContext';
 import { MiniPlayer } from './src/player/MiniPlayer';
 import { RootNavigator, type RootStackParamList } from './src/navigation/RootNavigator';
 
-// Shared https://amrutkan.org/play/<book>/<chapter>/<episode> links open
-// straight to the Now Playing screen (Android App Links / iOS Universal
-// Links; also the amrutkan:// scheme). Everything else on the domain is left
-// to the browser. NowPlayingScreen reads these params and cues the episode.
+// Shared https://amrutkan.org/play/<book>/<chapter>/<n> links open straight
+// to the Now Playing screen (Android App Links / iOS Universal Links; also
+// the amrutkan:// scheme). Everything else on the domain is left to the
+// browser. NowPlayingScreen reads these params and cues the episode.
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ['https://amrutkan.org', 'https://www.amrutkan.org', 'amrutkan://'],
   config: {
     initialRouteName: 'Main',
     screens: {
-      NowPlaying: 'play/:bookId/:chapterSlug/:episodeSlug',
+      NowPlaying: 'play/:bookId/:chapterSlug/:episodeNum',
     },
   },
 };
