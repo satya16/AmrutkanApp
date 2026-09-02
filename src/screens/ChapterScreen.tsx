@@ -12,6 +12,7 @@ import { API_BASE_URL } from '../config';
 import { downloadZip, zipExistsFor, type ZipDownloadProgress } from '../downloads';
 import { AppFooter } from '../components/AppFooter';
 import { promptDownload } from '../downloadPrompt';
+import { episodePlayPath, shareUrl } from '../utils/share';
 import { useScheduledDownloads } from '../ScheduledDownloadsContext';
 import { useSettings } from '../SettingsContext';
 import type { HomeStackParamList } from '../navigation/HomeStackNavigator';
@@ -138,7 +139,7 @@ export function ChapterScreen({ route, navigation }: Props) {
         </Pressable>
       }
       ListFooterComponent={<AppFooter />}
-      renderItem={({ item }) => {
+      renderItem={({ item, index }) => {
         const isCurrent = currentTrack?.episode.filename === item.filename;
         const downloaded = isDownloaded(item.filename);
         const downloadFraction = progress[item.filename];
@@ -167,6 +168,13 @@ export function ChapterScreen({ route, navigation }: Props) {
                 aria-label="पूर्ण ऐकले"
               />
             )}
+            <Pressable
+              hitSlop={10}
+              style={styles.dlBtn}
+              aria-label="शेअर करा"
+              onPress={() => shareUrl(episodePlayPath(bookId, chapterSlug, index + 1))}>
+              <AntDesign name="share-alt" size={16} color={colors.textSecondary} />
+            </Pressable>
             {item.durationSeconds ? (
               <View style={styles.duration}>
                 <AntDesign name="clock-circle" size={11} color={colors.textSecondary} />
